@@ -7,7 +7,7 @@ export default function ViewContent() {
   
   function justDoIt(args) {
     console.log(JSON.stringify(args, null, 2));
-    }`.toString();
+    }`;
 
   console.log(JSON.stringify(defaultValue, null, 2));
 

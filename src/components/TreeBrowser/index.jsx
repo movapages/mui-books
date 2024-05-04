@@ -13,10 +13,15 @@ export default function TreeBrowser() {
 
   let [entities, setEntities] = useState(ENTITIES);
 
-  const ref = useRef();
+  const [isIntersecting, setIsIntersecting] = useState(false);
+  const ref = useRef(null);
 
   const handleScroll = (e) => {
-    console.log('E: ', e);
+    // console.log('E: ', e);
+  };
+
+  const onItemFocus = (e) => {
+    console.log('onItemFocus-e: ', e);
   };
 
   useEffect(() => {
@@ -30,11 +35,21 @@ export default function TreeBrowser() {
 
   }, []);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsIntersecting(entry.isIntersecting)
+      }
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <Box
+    <Box ref={ref}
       onScroll={(e) => handleScroll(e)}
       sx={{ height: '1200px', border: '1px solid lightgray', overflowY: 'scroll' }}>
-      <RichTreeView items={entities} />
+      <RichTreeView items={entities} onFocus={(e) => onItemFocus(e)} />
     </Box>
   );
 }
