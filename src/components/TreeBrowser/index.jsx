@@ -1,10 +1,14 @@
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Box from '@mui/material/Box';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { getDefaultListObservable } from "../../services/apiProjects";
-import {Paper} from "@mui/material";
+import { getDefaultListObservable, getOnePage } from "../../services/apiProjects";
+import { distinctUntilChanged, fromEvent } from "rxjs";
+import { map, tap } from "rxjs/operators";
 
 export default function TreeBrowser() {
+
+  const startPage = 1;
+  let curPage = 0;
 
   const ENTITIES= [{
       id: 'grid',
@@ -12,9 +16,10 @@ export default function TreeBrowser() {
     }];
 
   let [entities, setEntities] = useState(ENTITIES);
-  const [direction, setDirection] = useState('down');
-  const [isIntersecting, setIsIntersecting] = useState(false);
   const ref = useRef(null);
+
+  let scrollEvent$ = null;
+  let onePageSubscription = null;
 
   let scrollTop = 0;
 
@@ -23,54 +28,61 @@ export default function TreeBrowser() {
   };
 
   useEffect(() => {
-    console.log('Direction: ', direction);
-  }, [direction]);
-
-  useEffect(() => {
 
     function handleScroll(e) {
       const currTop = e.target.scrollTop;
-      console.log(`curr: ${currTop}  prev: ${scrollTop}`);
+      let direction = 'down';
       if(currTop > scrollTop) {
-        setDirection('down');
+        direction = 'down'
       } else {
-        setDirection('up');
+        direction = 'up'
       }
       scrollTop = currTop;
+      return direction;
     }
 
-    ref.current.addEventListener('scroll', handleScroll);
+    scrollEvent$ = fromEvent(ref.current, 'scroll')
+      .pipe(
+        map(handleScroll),
+        // tap((msg) => console.log('fromTAP: ', msg)),
+        distinctUntilChanged(
+          (a,b) => JSON.stringify(a).split('').sort().join('') === JSON.stringify(b).split('').sort().join(''))
+      );
+
+    const subScrolEvent = scrollEvent$.subscribe((value) => {
+      console.log('subScrolEvent: ', value);
+      (value === 'down') && (curPage += 1);
+      ((value === 'up') && (curPage > 1) ) && (curPage -= 1);
+
+      onePageSubscription = getOnePage(curPage)
+        .subscribe((list) => {
+          setEntities([...list]);
+      });
+
+    });
 
     const defSubscription = getDefaultListObservable()
       .subscribe((list) => {
         setEntities(list);
+        curPage = startPage;
       })
 
     return (() => {
       defSubscription.unsubscribe();
-      ref.current.removeEventListener('scroll', handleScroll);
+      subScrolEvent.unsubscribe();
+      onePageSubscription.unsubscribe();
     })
 
   }, []);
 
-  // useEffect(() => {
-  //   const observer = new IntersectionObserver(
-  //     ([entry]) => {
-  //       setIsIntersecting(entry.isIntersecting)
-  //       if (entry.isIntersecting) {
-  //         console.log('Intersecting: ', entry.isIntersecting);
-  //         console.log('entry: ', entry);
-  //         console.log('ref: ', ref.current.lastChild);
-  //       }
-  //     }
-  //   );
-  //   observer.observe(ref.current);
-  //   return () => observer.disconnect();
-  // }, []);
 
   return (
     <Box ref={ref}
-      sx={{ height: '1200px', border: '1px solid lightgray', overflowY: 'scroll' }}>
+      sx={{
+        height: '700px',
+        border: '1px solid lightgray',
+        overflowY: 'scroll',
+    }}>
       <RichTreeView items={entities} onFocus={(e) => onItemFocus(e)} />
     </Box>
   );

@@ -8,6 +8,8 @@ const generateBookAPIQuery = ( page=1, limit=44) => {
 };
 
 const listInitValue = [];
+const ITEMS_AMOUNT = 839;
+let currPage = 1, lastItem = 0;
 
 const apiProjects = new BehaviorSubject(listInitValue);
 
@@ -21,7 +23,7 @@ const getDefaultListObservable = () => {
     .pipe(
       switchMap(  (response) => {
         if (response.ok) {
-          console.log('OK: ', response);
+          console.log('fromFetch-OK: ', response);
           return response.json();
         }
         return of({ error: true, status: response.status, message: 'List fetch failed' });
@@ -32,7 +34,26 @@ const getDefaultListObservable = () => {
     );
 };
 
+const getOnePage = (page) => {
+  let currentCall = generateBookAPIQuery(page);
+  return fromFetch(currentCall, {
+    method: 'GET'
+  })
+    .pipe(
+      switchMap(  (response) => {
+        if (response.ok) {
+          console.log('fromFetch-OK: ', response);
+          return response.json();
+        }
+        return of({ error: true, status: response.status, message: 'List fetch failed' });
+      }),
+      catchError((error) => {
+        return of({ error: true, status: error.status, message: error.message });
+      }),
+    );
+};
 
 export {
-  getDefaultListObservable
+  getDefaultListObservable,
+  getOnePage
 };
