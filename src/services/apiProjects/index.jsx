@@ -42,7 +42,7 @@ const getOnePage = (page) => {
     .pipe(
       switchMap(  (response) => {
         if (response.ok) {
-          console.log('fromFetch-OK: ', response);
+          console.log('getOnePage-OK: ', response);
           return response.json();
         }
         return of({ error: true, status: response.status, message: 'List fetch failed' });

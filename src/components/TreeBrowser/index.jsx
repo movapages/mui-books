@@ -2,7 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import Box from '@mui/material/Box';
 import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
 import { getDefaultListObservable, getOnePage } from "../../services/apiProjects";
-import { distinctUntilChanged, fromEvent } from "rxjs";
+import {distinctUntilChanged, fromEvent, interval, throttle} from "rxjs";
 import { map, tap } from "rxjs/operators";
 
 export default function TreeBrowser() {
@@ -44,9 +44,10 @@ export default function TreeBrowser() {
     scrollEvent$ = fromEvent(ref.current, 'scroll')
       .pipe(
         map(handleScroll),
-        // tap((msg) => console.log('fromTAP: ', msg)),
-        distinctUntilChanged(
-          (a,b) => JSON.stringify(a).split('').sort().join('') === JSON.stringify(b).split('').sort().join(''))
+        tap((msg) => console.log('fromTAP: ', msg)),
+        throttle(() => interval(100))
+        // distinctUntilChanged(
+        //   (a,b) => JSON.stringify(a).split('').sort().join('') === JSON.stringify(b).split('').sort().join(''))
       );
 
     const subScrolEvent = scrollEvent$.subscribe((value) => {
@@ -56,7 +57,9 @@ export default function TreeBrowser() {
 
       onePageSubscription = getOnePage(curPage)
         .subscribe((list) => {
-          setEntities([...list]);
+          setEntities([...entities, ...list]);
+          console.log('ENT-len: ', entities.length);
+          console.log('ENT: ', entities);
       });
 
     });
