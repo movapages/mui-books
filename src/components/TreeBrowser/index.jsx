@@ -1,92 +1,61 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import Box from '@mui/material/Box';
-import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { getDefaultListObservable, getOnePage } from "../../services/apiProjects";
-import {distinctUntilChanged, fromEvent, interval, throttle} from "rxjs";
-import { map, tap } from "rxjs/operators";
+import {SimpleTreeView, TreeItem} from "@mui/x-tree-view";
+
+import useDefaultApi from "../../services/useDefaultApi/useDefaultApi";
+
 
 export default function TreeBrowser() {
 
-  const startPage = 1;
-  let curPage = 0;
+  const [current, setCurrent] = useState(1); // current page
+  const [hasMore, error, loading, entities] = useDefaultApi(current);
 
-  const ENTITIES= [{
-      id: 'grid',
-      label: 'Empty List'
-    }];
-
-  let [entities, setEntities] = useState(ENTITIES);
-  const ref = useRef(null);
-
-  let scrollEvent$ = null;
-  let onePageSubscription = null;
-
-  let scrollTop = 0;
-
-  const onItemFocus = (e) => {
-    console.log('onItemFocus-e: ', e);
-  };
-
-  useEffect(() => {
-
-    function handleScroll(e) {
-      const currTop = e.target.scrollTop;
-      let direction = 'down';
-      if(currTop > scrollTop) {
-        direction = 'down'
-      } else {
-        direction = 'up'
+  console.log('entitiesTREE: ', entities);
+  const observer = useRef();
+  const lastElRef = useCallback(node => {
+    if (loading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        console.log('Visible: ', entries[0].isIntersecting);
+        setCurrent(prevPageNumber => prevPageNumber+1);
       }
-      scrollTop = currTop;
-      return direction;
-    }
-
-    scrollEvent$ = fromEvent(ref.current, 'scroll')
-      .pipe(
-        map(handleScroll),
-        tap((msg) => console.log('fromTAP: ', msg)),
-        throttle(() => interval(100))
-        // distinctUntilChanged(
-        //   (a,b) => JSON.stringify(a).split('').sort().join('') === JSON.stringify(b).split('').sort().join(''))
-      );
-
-    const subScrolEvent = scrollEvent$.subscribe((value) => {
-      console.log('subScrolEvent: ', value);
-      (value === 'down') && (curPage += 1);
-      ((value === 'up') && (curPage > 1) ) && (curPage -= 1);
-
-      onePageSubscription = getOnePage(curPage)
-        .subscribe((list) => {
-          setEntities([...entities, ...list]);
-          console.log('ENT-len: ', entities.length);
-          console.log('ENT: ', entities);
-      });
-
-    });
-
-    const defSubscription = getDefaultListObservable()
-      .subscribe((list) => {
-        setEntities(list);
-        curPage = startPage;
-      })
-
-    return (() => {
-      defSubscription.unsubscribe();
-      subScrolEvent.unsubscribe();
-      onePageSubscription.unsubscribe();
     })
-
-  }, []);
+    if (node) observer.current.observe(node);
+  }, [loading, hasMore]);
 
 
   return (
-    <Box ref={ref}
+    <Box
       sx={{
-        height: '700px',
+        height: '120px',
+        maxWidth: '400px',
         border: '1px solid lightgray',
         overflowY: 'scroll',
     }}>
-      <RichTreeView items={entities} onFocus={(e) => onItemFocus(e)} />
+      <SimpleTreeView>
+
+        {entities && entities.map((page, index) => {
+          if (index === entities.length - 1) {
+            return <TreeItem ref={lastElRef}
+              itemId={page.id}
+              key={page.id}
+              label={page.name}>
+              <TreeItem itemId='1' label={'child'}/>
+            </TreeItem>
+          } else {
+            return <TreeItem
+              itemId={page.id}
+              key={page.id}
+              label={page.name}>
+              <TreeItem itemId='1' label={'child'}/>
+            </TreeItem>
+          }
+        })}
+
+        {!entities && loading && <small>Loading the list...</small>}
+
+      </SimpleTreeView>
     </Box>
   );
 }
